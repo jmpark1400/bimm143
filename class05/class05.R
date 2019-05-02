@@ -2,6 +2,7 @@
 #' title: "Class 5: R Graphics"
 #' author: "Jimin Park"
 #' date: "April 18th, 2019"
+#' output: github_document
 #' ---
 
 #2A line plot
