@@ -1,0 +1,140 @@
+---
+title: "Class11: Structural Bioinformatics"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The PDB Database
+
+The [PDB](http://www.rcsb.org/) is the main respository for biomolectular structure data.
+
+Here we examine the contents of the PDB:
+
+> Q1: Download a CSV file from the PDB site (accessible from “Analyze” -> “PDB Statistics” > “by Experimental Method and Molecular Type”. Move this CSV file into your RStudio project and determine the percentage of structures solved by X-Ray and Electron Microscopy. From the website what proportion of structures are protein?
+
+```{r}
+db <- read.csv("Data Export Summary.csv", row.names=1)
+head(db)
+```
+
+How many are X-Ray
+```{r}
+(db$Total/sum(db$Total))*100
+```
+
+```{r}
+(sum(db$Proteins)/sum(db$Total)) * 100
+```
+
+We could also try the datapasta pacakge and copy from website and "Addins" > "Paste as data.frame"
+```{r}
+library(datapasta)
+
+tmp <- data.frame(stringsAsFactors=FALSE,
+   Experimental.Method = c("X-Ray", "NMR", "Electron Microscopy", "Other",
+                           "Multi Method", "Total"),
+              Proteins = c(126880, 11062, 2277, 256, 129, 140604),
+         Nucleic.Acids = c(2012, 1279, 31, 4, 5, 3331),
+    ProteinComplex = c(6547, 259, 800, 6, 2, 7614),
+                 Other = c(8, 8, 0, 13, 1, 30),
+                 Total = c(135447, 12608, 3108, 279, 137, 151579)
+)
+
+```
+
+> Q2: Type HIV in the PDB website search box on the home page and determine how many HIV-1 protease structures are in the current PDB? 
+
+There are 1157 as of "2019-05-07"
+See: http://www.rcsb.org/pdb/results/results.do?tabtoshow=Current&qrid=1DB596F9
+
+
+```{r}
+library(bio3d)
+
+pdb <- read.pdb("1hsg.pdb")
+pdb
+
+```
+```{r}
+pdb$atom
+```
+
+
+Atom selection is done via the funtion **atom.select()**
+```{r}
+inds <- atom.select(pdb, "protein")
+```
+
+```{r}
+pdb$atom[inds$atom, ]
+```
+
+#writes into protein only pdb file
+```{r}
+prot.pdb <- atom.select(pdb, "protein",value = TRUE)
+write.pdb(prot.pdb, file="1hsg_protein.pdb")
+```
+
+```{r}
+lig.pdb <- atom.select(pdb, "ligand", value = TRUE)
+write.pdb(lig.pdb, file="1hsg_ligand.pdb")
+```
+
+```{r}
+aa <- get.seq("1ake_A")
+b<- blast.pdb(aa)
+```
+
+```{r}
+hits <- plot(b)
+```
+
+```{r}
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+pdbs <- pdbaln(files)
+ids <- basename.pdb(pdbs$id)
+plot(pdbs, labels=ids)
+```
+
+```{r}
+cons <- conserv(pdbs, method="entropy22")
+sse <- pdbs2sse(pdbs, ind=1, rm.gaps=FALSE)
+plotb3(cons, sse=sse, ylab="Sequence entropy")
+```
+
+```{r}
+anno <- pdb.annotate(ids)
+print(unique(anno$source))
+```
+
+```{r}
+core <- core.find(pdbs)
+pdbs$xyz = pdbfit(pdbs, core)
+pc.xray <- pca(pdbs)
+rd <- rmsd(pdbs)
+hc.rd <- hclust(dist(rd))
+grps.rd <- cutree(hc.rd, k=3)
+
+plot(pc.xray, 1:2, col="grey50", bg=grps.rd, pch=21, cex=1)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

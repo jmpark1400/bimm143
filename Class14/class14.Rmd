@@ -1,0 +1,225 @@
+---
+title: "Class 14: Transcriptiomics and "
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("DESeq2")
+```
+
+```{r}
+counts <- read.csv("airway_scaledcounts.csv", stringsAsFactors = FALSE)
+metadata <- read.csv("airway_metadata.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+head(counts)
+head(metadata)
+```
+
+There are 'r nrows(counts)' genes in this dataset
+```{r}
+nrow(counts)
+colnames(counts)
+```
+
+```{r}
+View(metadata)
+View(counts)
+```
+
+Lets check the correspondence of our countData cols and our metaData rows.
+This will be required when we use DESeq later
+```{r}
+colnames(counts) == metadata$id
+metadata$id
+```
+
+## Section 3. Walk through the gene expression analysis
+
+Our metadata file tells us which columns of the countData are drug treated and control (i.e. non drugged)
+```{r}
+control.inds <- metadata$dex == "control"
+control <- metadata[control.inds,]
+control$id
+```
+```{r}
+head(counts[, control$id])
+```
+
+Determine the mean count values for all genes across control experiments
+```{r}
+control <- metadata[metadata[,"dex"]=="control",]
+control.mean <- rowSums(counts[ , control$id]) / length(control$id)
+control.mean
+names(control.mean) <- counts$ensgene
+```
+
+Determine the mean count values for all genes across treated experiments
+```{r}
+treated <- metadata[metadata[,"dex"]=="treated",]
+treated.mean <- rowSums(counts[ , treated$id]) / 4
+```
+
+Lets store the control.mean and treated.mean together for ease of use
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+```
+
+What is the sum across all genes in control and treated
+```{r}
+colSums(meancounts)
+```
+```{r}
+meancounts$log2fc <- log2(meancounts[,"treated.mean"]/meancounts[,"control.mean"])
+head(meancounts)
+```
+
+```{r}
+plot(meancounts, log="xy")
+```
+
+We will now remove the NaN and -Inf values.
+The NaN is returned when you divide by zero and try to take the log. The -Inf is returned when you try to take the log of zero.
+```{r}
+to.rm <- unique(which(meancounts[,1:2] == 0, arr.ind=TRUE)[,1])
+```
+
+```{r}
+mycounts <- meancounts[-to.rm,]
+nrow(mycounts)
+```
+
+How many genes are up in the drug treated cells
+```{r}
+up.inds <- mycounts$log2fc > 2
+sum(up.inds)
+```
+
+and how many are down?
+```{r}
+down.inds <- mycounts$log2fc < -2
+sum(down.inds) 
+```
+
+```{r}
+head(mycounts[up.inds,])
+```
+
+## Section 4 Adding annotation data
+We can add annotation from a supplied CSV file, such as those available from ENSEMBLE or UCSC. The annotables_grch38.csv annotation table links the unambiguous Ensembl gene ID to other useful annotation like the gene symbol, full gene name, location, Entrez gene ID, etc.
+
+```{r}
+anno <- read.csv("annotables_grch38.csv")
+head(anno)
+```
+
+Use the **merge()** function to add the annotation data from the 'anno' object to our RNA-seq results in 'mycounts'
+
+```{r}
+#use the merge function
+mycounts.anno <- merge(mycounts, anno, by.x="row.names", by.y="ensgene")
+mycounts.anno
+```
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+```
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+We will use the **mapIds()** function from biconductor to add annotation data to our results 
+
+```{r}
+mycounts$symbol <- mapIds(org.Hs.eg.db, keys=row.names(mycounts),  #the gene names in our dataset
+       keytype = "ENSEMBL",                                        #format of our gene names
+       column="SYMBOL")                                            #whatnew data do we want to add
+```
+
+```{r}
+head(mycounts)
+```
+
+```{r}
+mycounts$entrez <- mapIds(org.Hs.eg.db, keys=row.names(mycounts),  #the gene names in our dataset
+                  keytype = "ENSEMBL",                                        #format of our gene names
+                  column="ENTREZID")
+```
+
+```{r}
+head(mycounts)
+```
+
+## Section 5. Use DESeq2
+```{r}
+library("DESeq2")
+```
+
+Setup the object needed for DESeq analysis
+```{r}
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex, 
+                              tidy=TRUE)
+dds
+```
+
+```{r}
+dds <- DESeq(dds)
+```
+```{r}
+res <- results(dds)
+head(res)
+```
+
+```{r}
+res05 <- results(dds, alpha=0.05)
+summary(res05)
+```
+
+```{r}
+res01 <- as.data.frame(results(dds, alpha=0.01))
+head(res01)
+```
+
+Let's sort or order our results by the adjusted p-value
+```{r}
+#an example of using order to sort a vector
+x <- c(5,4,1,2)
+x[order(x)]
+```
+
+```{r}
+ord.inds <- order(res01$padj )
+write.csv(res01[ord.inds, ], file="signif01_results.csv")
+```
+
+```{r}
+plot(res01$log2FoldChange, -log(res01$padj))
+```
+
+```{r}
+mycols <- rep("gray", nrow(res01))
+mycols[res01$padj<0.01] <- "black"
+#mycols[abs(res01$log2FoldChange) > 2] <- "black"
+
+mycols[(res01$padj<0.01) & (abs(res01$log2FoldChange) > 2)] <- "red"
+
+plot(res01$log2FoldChange, -log(res01$padj), xlab="-log Fold Change (Drug/Control)", ylab="-log(p-value)", col=mycols)
+```
+
+
+
+
+
+
+
+
+

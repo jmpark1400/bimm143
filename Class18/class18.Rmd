@@ -1,0 +1,105 @@
+---
+title: "Class 18: Cancer genomics"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploring the Cancer genome atlas
+
+Install the packages we need:
+```{r eval=FALSE}
+BiocManager::install(c("GenomicDataCommons", "TCGAbiolinks", "maftools"))
+```
+
+Load the packages
+```{r}
+library(GenomicDataCommons)
+library(TCGAbiolinks)
+library(maftools)
+```
+
+```{r}
+GenomicDataCommons::status()
+```
+
+```{r}
+cases_by_project <- cases() %>%
+  facet("project.project_id") %>%
+  aggregations()
+head(cases_by_project)
+```
+
+```{r}
+x <- cases_by_project$project.project_id
+
+# Make a custom color vector for our plot
+colvec <- rep("lightblue", nrow(x))
+colvec[which(x$key == "TCGA-PAAD")] <- "red"
+```
+
+
+```{r}
+# Plot with 'log' for y axis and rotate labels with 'las'
+barplot(x$doc_count, names.arg=x$key, log="y", col=colvec, las=2)
+```
+
+
+## Identify tumor specific 9-mer peptides
+```{r}
+seq <- read.fasta("lecture18_sequences.fa")
+```
+
+```{r}
+aligned <- seqaln(seq)
+
+aligned
+```
+
+```{r}
+ide <- conserv(aligned, method = "identity")
+ide
+
+```
+
+```{r}
+mismatchsites <- which(ide < 1)
+gapsites <- gap.inspect(aligned)$t.inds
+```
+
+#find mismatches that aren't gapsites
+```{r}
+tumorsites <- mismatchsites[!mismatchsites %in% gapsites]
+```
+
+Now get the sequence will all possible 9-mers
+
+```{r}
+startposition <- tumorsites - 8
+endposition <- tumorsites
+```
+
+```{r}
+startposition[1]:endposition[1]
+```
+
+Get the tumor sequence
+```{r}
+aligned$ali[2,startposition[1]:endposition[1]]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,196 @@
+---
+title: "Class 15: Pathway Analysis from RNA-Seq Results"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## RNA-seq analysis
+
+The data for hands-on
+
+```{r}
+metaFile <- "GSE37704_metadata.csv"
+countFile <- "GSE37704_featurecounts.csv"
+
+#import metadata
+colData = read.csv(metaFile, row.names=1)
+colData
+
+countData= read.csv(countFile, row.names = 1)
+countData
+```
+
+Looks like we need to remove the first "length" column in the 'countData' object.
+```{r}
+#remove first col from countData
+countData <- as.matrix(countData[,-1])
+head(countData)
+```
+
+Let's remove the rows with zero counts in all experiments
+```{r}
+nonzero <- (rowSums(countData) > 0)
+```
+
+```{r}
+countData <- countData[nonzero, ]
+head(countData)
+```
+```{r}
+nrow(countData)
+```
+
+##Running DESeq2
+Nice now lets setup the DESeqDataSet object required for the DESeq() function and 
+then run the DESeq pipeline. This is again similar to our last days hands-on session.
+
+```{r}
+dds = DESeqDataSetFromMatrix(countData=countData,
+                             colData=colData,
+                             design=~condition)
+dds = DESeq(dds)
+```
+Get our results
+```{r}
+res <- results(dds)
+summary(res)
+```
+
+Make volcano plot
+```{r}
+plot(res$log2FoldChange, -log(res$padj))
+abline(v=c(-2, 2), col="orange", lty=2, lwd=2)
+abline(h=-log(0.01), col="orange", lty=2, lwd=2)
+```
+
+```{r}
+# Make a color vector for all genes
+mycols <- rep("gray", nrow(res) )
+
+# Color red the genes with absolute fold change above 2
+mycols[ abs(res$log2FoldChange) > 2 ] <- "blue"
+
+# Color blue those with adjusted p-value less than 0.01
+#  and absolute fold change more than 2
+inds <- ((-log(res$padj)) < (-log(0.01)) & (abs(res$log2FoldChange) > 2 ))
+mycols[ inds ] <- "red"
+
+plot( res$log2FoldChange, -log(res$padj),col = mycols, xlab="Log2(FoldChange)", ylab="-Log(P-value)" )
+```
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+
+columns(org.Hs.eg.db)
+```
+
+```{r}
+res$symbol = mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    keytype="ENSEMBL",
+                    column="SYMBOL",
+                    multiVals="first")
+
+res$entrez = mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="ENTREZID",
+                    multiVals="first")
+
+res$name =   mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="GENENAME",
+                    multiVals="first")
+
+```
+
+
+```{r}
+head(as.data.frame(res))
+```
+
+Write out our ordered and annotated results object
+```{r}
+res = res[order(res$pvalue),]
+write.csv(res, file="deseq_results.csv")
+```
+
+## Section 2. Pathway Analysis
+
+Load packages and datasets that we need
+```{r}
+library(pathview)
+library(gage)
+library(gageData)
+
+```
+
+```{r}
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+
+#focus on signaling and metabolic pathways only
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+
+# Examine the first 3 pathways
+head(kegg.sets.hs, 3)
+```
+
+Create a vector of FoldChnage values that has ENTREZ identifiers as the names of the vector. 
+This is the format that the **gage()** function wants.
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+```
+
+Run the **gage()** function with this input
+```{r}
+# Get the results
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+```
+
+Now lets look at the object returned from gage()
+```{r}
+attributes(keggres)
+```
+
+```{r}
+# Look at the first few down (less) pathways
+head(keggres$less)
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+```
+
+![](hsa04110.pathview.png)
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa03030")
+```
+![](hsa03030.pathview.png)
+
+```{r}
+## Focus on top 5 upregulated pathways here for demo purposes only
+keggrespathways <- rownames(keggres$greater)[1:5]
+
+# Extract the 8 character long IDs part of each string
+keggresids = substr(keggrespathways, start=1, stop=8)
+keggresids
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id=keggresids, species = "hsa")
+```
+
+
+
+
+
+

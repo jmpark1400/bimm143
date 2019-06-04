@@ -1,0 +1,13 @@
+---
+title: "Class 12: Drug discovery and design"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(bio3d)
+```
+
