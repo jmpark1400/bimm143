@@ -4,6 +4,14 @@ This is my classwork from [BIMM143 Spring 2019](https://bioboot.github.io/bimm14
 
 - class 05: [R basics, data structures and data input](https://github.com/jmpark1400/bimm143/blob/master/class06/Class06.md)
 - class 06: R graphics, generating plots with R
-- class 07: 
-- class 08:
-- class 09:
+- class 07: Bioinformatics R packages form CRAN and BioConductor
+- class 08: Introdution to machine learning for Bioinformatics 1
+- class 09: Unsupervised learning mini-Project
+- class 11: Structural Bioinformatics
+- class 12: Bioinformatics in drug discovery and design
+- class 13: Genome informatics and high throughput sequencing
+- class 14: Transcriptomics and the analysis of RNA-Seq data
+- class 15: Genome annotation and the interpretation of gene lists
+- class 16: Essential UNIX for bioinformatics
+- class 17: Biological network analysis
+- class 18: Cancer genomics
